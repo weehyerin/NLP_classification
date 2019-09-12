@@ -402,24 +402,74 @@ forest.fit( train_input, train_label )
 ![그림1](https://user-images.githubusercontent.com/37536415/64771047-4a949c80-d589-11e9-88de-a9ea2958ce66.png)
 입력 문장을 순차적으로 입력만 하고 마지막으로 입력한 시점에 출력 정보를 뽑아 영화 평점을 예측
 
+전처리한 데이터 그대로 사용
 
+###### 하이퍼 파라미터
+~~~
+WORD_EMBEDDING_DIM = 100
+HIDDEN_STATE_DIM = 150
+DENSE_FEATURE_DIM = 150
 
+learning_rate = 0.001
+~~~
 
+###### 임베딩 층
+~~~
+embedding_layer = tf.keras.layers.Embedding(
+                    VOCAB_SIZE,
+                    WORD_EMBEDDING_DIM)(features['x'])
+~~~
 
+모델에서 배치 데이터를 받게 되면, 단어 인덱스로 구성된 시퀀스 형태로 입력이 들어옴
+모델에 들어온 입력 데이터는 임베딩 층을 거침
 
+###### rnn
+~~~
+ rnn_layers = [tf.nn.rnn_cell.LSTMCell(size) for size in [HIDDEN_STATE_DIM, HIDDEN_STATE_DIM]]
+ multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell(rnn_layers)
+~~~
+- 문장의 의미 벡터 만듦
 
+> 순환신경망을 구현하기 위해 RNNCell 이용
+>> LSTM으로 순환 신경망을 구성하기 위해서는 (tf.nn.rnn_cell.LSTMCell)로 사용
 
+노드를 다 구성하면 MultiRNN으로 묶어주어야 한다. --> MultiRNNCell(rnn_layers)
 
+~~~
+outputs, state = tf.nn.dynamic_rnn(cell=multi_rnn_cell,
+                                       inputs=embedding_layer,
+                                       dtype=tf.float32)
+~~~
+RNNCell(RNN의 노드 하나)에서는 시퀀스 한 스텝에 대한 연산만 가능
+> 여러 스텝에 대한 연산을 하기 위해 dynamic_rnn 사용
+>> 인자 : rnn 객체인 MultiRNNCell / 입력값 / dtype으로 출력값의 type 지정
 
+~~~
+hidden_layer = tf.keras.layers.Dense(DENSE_FEATURE_DIM, activation=tf.nn.tanh)(outputs[:,-1,:])
+~~~
+위의 dynamic_rnn의 과정에서 나온 출력값을 Dense에 적용
 
+~~~
+logits = tf.keras.layers.Dense(1)(hidden_layer)
+~~~
+마지막으로 긍/부정을 판단하도록 출력값을 하나로 만듦. --> 입력벡터에 대한 차원수를 Dense를 통해 바꿈
+~~~
+test_id = np.load(open(DATA_IN_PATH + TEST_ID_DATA, 'rb'))
+~~~
 
+위의 부분에서 에러가 나면 (allow_pickle=False라는 에러) 아래처럼 처리
+~~~
+test_id = np.load(open(DATA_IN_PATH + TEST_ID_DATA, 'rb'), allow_pickle=True)
+~~~
 
+## 4. CNN
+> 합성곱 신경망 : 전통적인 신경망 앞에 여러 계층의 합성곱 계층을 쌓은 모델, 입력 받은 이미지에 대한 가장 좋은 특징을 만들어 내도록 학습하고, 추출된 특징을 활용해 이미지를 분류하는 방식
+>> 일반적으로 이미지에서 강아지, 고양이, 돼지 등과 같은 특정 라벨을 붙여 데이터 셋을 만들고, 모델이 학습을 하면서 각 특징값을 추출해서 특징을 배우고, 가장 가까운 라벨을 예측
+![image](https://user-images.githubusercontent.com/37536415/64772715-0c4cac80-d58c-11e9-900f-1d6d0404ba83.png)
 
-
-
-
-
-
+### CNN에서 텍스트를 어떻게 사용할까?
+- RNN이 단어의 입력 순서를 중요하게 반영한다면, CNN은 문장의 지역 정보를 보존하면서 각 문장 성분의 등장 정보를 학습에 반영하는 구조
+> 학습할 때, 각 필터 크기를 조절하면서 언어의 특징 값(언어의 벡터)을 추출하게 되는데 n-gram 방식과 유사 
 
 
 
