@@ -263,6 +263,159 @@ pad_sequences : padding 해주는 함수
 - 인자 : 데이터, 최대 길이값, 0을 앞에 채울지/뒤에 채울지
 
 ##### 위의 결과로 데이터가 모두 174라는 길이를 가지게 됨. 
+한 개의 리뷰가 한 개의 174라는 길이를 가지는 벡터임. 
+
+## 마지막으로 위의 전처리한 결과들을 각각 저장하기
+- 정제된 텍스트 데이터: 특수문자, html tag 등을 삭제한 것
+- 벡터화한 데이터 : padding 처리한 후 데이터
+- 정답라벨 : 긍정, 부정
+- 데이터 정보(단어 사전, 전체 단어 개수)
+
+
+# 모델링
+
+> 위의 전처리된 데이터를 가지고 직접 모델에 적용하고 
+> 주어진 텍스트에 대해 감정이 긍정인지 부정인지 예측할 수 있는 모델 만들기
+
+## 1. 회귀 모델
+
+로지스틱 회귀 모델 : 이항 분류를 하기 위해 사용, 분류 모델에서 사용할 수 있는 간단한 모델
+- 선형 결합을 대로 예측하면 됨
+
+### 선형 회귀 모델
+- 종속변수와 독립변수 간의 상관관계를 모델링하는 방법
+
+### 로지스틱 회귀 모델
+로지스틱 함수를 적용해 0 ~ 1 사이의 값을 갖게 해서 확률로 표현
+> 결과가 1에 가까우면 1, 0에 가까우면 0이라고 예측
+
+### TF-IDF 사용하기
+위에서 정제한 텍스트 데이터(불용어, html tag 등 삭제)한 것을 벡터화 
+
+~~~
+vectorizer = TfidfVectorizer(min_df = 0.0, analyzer="char", sublinear_tf=True, ngram_range=(1,3), max_features=5000) 
+
+X = vectorizer.fit_transform(reviews)
+y = np.array(sentiments)
+~~~
+
+- min_df : 설정한 값보다 특정 토큰의 df 값이 더 적게 나오면 벡터화 과정에서 제거한다.
+- analyzer : 분석하기 위한 기준 단위(word : 단어 하나를 단위로 하는 것, char : 문자 하나를 단위로)
+- sublinear_tf : 문서의 단어 빈도 수에 대한 smoothing 여부를 설정
+- ngram_range : 빈도의 기본 단위를 어느 범위의 n_gram으로 설정할 것인지 
+- max_featuer : 각 벡터의 최대 길이, 특징의 길이를 설정
+
+
+### Word2Vec 사용하기
+word2vec의 경우, 단어로 표현된 리스트를 넣어야 함. 따라서 정제한 텍스트 데이터를 가지고 와서 잘라주기
+
+~~~
+sentences = []
+for review in reviews:
+    sentences.append(review.split())
+~~~
+
+word2vec 모델의 하이퍼파라미터 설정
+~~~
+num_features = 300    # 워드 벡터 특징 값 수, 각 단어에 대해 임베딩된 벡터의 차원 설정
+min_word_count = 40   # 단어에 대한 최소 빈도 수, 모델에 의미 있는 단어를 가지고 학습하기 위해 적은 빈도 수의 단어들은 학습하지 않는다.
+num_workers = 4       # 프로세스 개수
+context = 10          # 컨텍스트 윈도우 크기
+downsampling = 1e-3   # 다운 샘플링 비율, 학습을 수행할 때 빠른 학습을 위해 정답 단어 라벨에 대한 다운 샘플링 비율을 지정
+~~~
+
+~~~
+pip install --upgrade pip
+~~~
+pip ungrade 이후, 
+
+~~~
+!pip install gensim
+~~~
+gensim 라이브러리 설치 : gensim의 word2vec 모듈을 불러오기 위해서
+
+~~~
+from gensim.models import word2vec
+
+model = word2vec.Word2Vec(sentences, workers=num_workers, \
+           size=num_features, min_count = min_word_count, \
+            window = context, sample = downsampling)
+~~~
+word2vec으로 학습
+
+##### word2vec 모델의 경우, 모델을 저장해 두면 이후에 다시 사용할 수 있다. 
+~~~
+model_name = "300features_40minwords_10context"
+model.save(model_name)
+~~~
+
+~~~
+Word2Vec.load() 를 통해서 모델을 다시 사용 가능
+~~~
+
+##### word2vec을 한 이후에, 각 텍스트들을 같은 크기의 벡터로 바꿔주기
+
+## 2. 랜덤포레스트 모델
+
+### CountVectorizer를 활용한 벡터화
+- 텍스트 데이터에서 횟수를 기준으로 특징을 추출하는 방법
+- 어떤 단위의 횟수를 셀 것인지는 선택 사항
+- 단위는 단어가 될 수도 있고, 문자 하나나가 될 수도 있다. 
+- 보통은 텍스트에서 단어를 기준으로 횟수를 측정, 문장을 입력으로 받아 단어의 횟수를 측정한 뒤 벡터로 만든다. 
+
+> 모델의 입력값은 전처리한 텍스트 데이터
+
+~~~
+vectorizer = CountVectorizer(analyzer = "word", max_features = 5000) 
+
+train_data_features = vectorizer.fit_transform(reviews)
+~~~
+- 분석 단위 : 하나의 단어(word) / 벡터의 최대 길이 : 5000
+
+##### 모델 학습
+~~~
+from sklearn.ensemble import RandomForestClassifier
+
+
+# 랜덤 포레스트 분류기에  100개 의사 결정 트리를 사용한다.
+forest = RandomForestClassifier(n_estimators = 100) 
+
+# 단어 묶음을 벡터화한 데이터와 정답 데이터를 가지고 학습을 시작한다.
+forest.fit( train_input, train_label )
+~~~
+
+## 3. 순환 신경망 분류 모델
+순환 신경망은 언어 모델에서 많이 쓰이는 딥러닝 모델 중 하나. 
+주로 순서가 있는 데이터, 즉 문장 데이터를 입력해서 문장 흐름에서 패턴을 찾아 분류하게 한다. 
+
+>> 텍스트 자체를 입력해서 문장에 대한 특징 정보를 추출
+
+![image](https://user-images.githubusercontent.com/37536415/64764845-efa97800-d57d-11e9-9f07-20122d804918.png)
+
+![image](https://user-images.githubusercontent.com/37536415/64765260-c50bef00-d57e-11e9-8e34-d88f6c90cba2.png)
+
+위의 모델은 한 단어에 대한 정보를 입력하면 이 단어 다음에 나올 단어를 맞추는 모델
+> 아버지라는 단어 정보를 모델에 입력해서 그 다음에 나올 단어를 예측하고, 
+> 그 다음에 가방에라는 정보가 입력되면, 앞서 입력한 아버지라는 정보를 입력해서 처리된 정보와 함께 활용해서 다음 단어를 예측
+> 현재정보를 input sate 이전 정보를 hiddne state --> 순환 신경망은 이 두 상태 정보를 활용해 순서가 있는 데이터에 대한 예측 모델링을 가능하게 함.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
