@@ -390,7 +390,7 @@ forest.fit( train_input, train_label )
 
 >> 텍스트 자체를 입력해서 문장에 대한 특징 정보를 추출
 
-![image](https://user-images.githubusercontent.com/37536415/64764845-efa97800-d57d-11e9-9f07-20122d804918.png)
+![image](https://user-images.githubusercontent.com/37536415/64771124-6ac45b80-d589-11e9-9000-1d5a25df92fe.png)
 
 ![image](https://user-images.githubusercontent.com/37536415/64765260-c50bef00-d57e-11e9-8e34-d88f6c90cba2.png)
 
@@ -399,8 +399,8 @@ forest.fit( train_input, train_label )
 > 그 다음에 가방에라는 정보가 입력되면, 앞서 입력한 아버지라는 정보를 입력해서 처리된 정보와 함께 활용해서 다음 단어를 예측
 > 현재정보를 input sate 이전 정보를 hiddne state --> 순환 신경망은 이 두 상태 정보를 활용해 순서가 있는 데이터에 대한 예측 모델링을 가능하게 함.
 
-
-
+![그림1](https://user-images.githubusercontent.com/37536415/64771047-4a949c80-d589-11e9-88de-a9ea2958ce66.png)
+입력 문장을 순차적으로 입력만 하고 마지막으로 입력한 시점에 출력 정보를 뽑아 영화 평점을 예측
 
 
 
